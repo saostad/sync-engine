@@ -1,0 +1,5 @@
+{
+  "name": "@sostad/sync-engine",
+  "version": "0.1.0",
+  "exports": "./class-sync.ts"
+}
