@@ -1,6 +1,6 @@
 /**
  * @description one way syncing engine
- * - detect new and deleted records
+ * - detect new, updated and deleted records
  * - match fields from source to destination
  * @spec api design for detecting new and deleted records
  * - get two arrays of key fields (source and destination)
