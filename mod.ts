@@ -1,8 +1,7 @@
 /**
- * Class SyncEngine
- * - constructor gets the two data sets and the keys to compare the records and the fieldMapping functions
- * - methods: sync, getChanges
- * - sync: gets insert, delete, and update functions and apply them to the records
+ * @module
+ *
+ * one way syncing engine
  */
 
 export class SyncEngine<

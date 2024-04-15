@@ -1,4 +1,4 @@
-import { SyncEngine } from "../class-sync.ts";
+import { SyncEngine } from "../mod.ts";
 import testData from "./sample-data.json" with { type: "json" }
 import { expect, test } from 'vitest'
 
