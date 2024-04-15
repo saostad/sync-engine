@@ -29,11 +29,63 @@ const a = new SyncEngine<typeof src, typeof dst>({
 });
 
 const mappings = a.mapFields();
+console.log("Mappings: ", JSON.stringify(mappings, null, 2));
+```
 
+Output:
+
+```json
+"Mappings": [
+    {
+      "FullName": "John Doe",
+      "id": 1
+    },
+    {
+      "FullName": "Jane Diana",
+      "id": 2
+    },
+    {
+      "FullName": "Rid Lomba",
+      "id": 4
+    }
+  ],
+```
+
+```ts
 const changes = a.getChanges();
+console.log("Changes: ", JSON.stringify(changes, null, 2));
+```
 
-console.log(JSON.stringify(src, null, 2));
-console.log(JSON.stringify(dst, null, 2));
-console.log(JSON.stringify(mappings, null, 2));
-console.log(JSON.stringify(changes, null, 2));
+Output:
+
+```json
+"Changes": {
+  "inserted": [
+    {
+      "FullName": "Jane Diana",
+      "id": 2
+    }
+  ],
+  "deleted": [
+    {
+      "id": 3,
+      "FullName": "Doe Risko"
+    }
+  ],
+  "updated": [
+    {
+      "row": {
+        "FullName": "Rid Lomba",
+        "id": 4
+      },
+      "fields": [
+        {
+          "fieldName": "FullName",
+          "oldValue": "Fids Almo",
+          "newValue": "Rid Lomba"
+        }
+      ]
+    }
+  ]
+}
 ```

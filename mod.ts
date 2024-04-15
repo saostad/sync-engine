@@ -1,9 +1,3 @@
-/**
- * @module
- *
- * one way syncing engine
- */
-
 export class SyncEngine<
   Src extends Record<any, any>[],
   Dst extends Record<any, any>[]
