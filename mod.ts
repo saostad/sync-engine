@@ -9,12 +9,25 @@ export class SyncEngine<
     fieldName: keyof Dst[number];
     fn: (row: Src[number]) => any;
   }[] = [];
+  private syncFns: {
+    insertFn?: (row: Record<keyof Dst[number], any>) => void | Promise<void>;
+    deleteFn?: (row: Record<keyof Dst[number], any>) => void | Promise<void>;
+    updateFn?: (
+      row: Record<keyof Dst[number], any>,
+      fields: {
+        fieldName: keyof Dst[number];
+        oldValue: any;
+        newValue: any;
+      }[]
+    ) => void | Promise<void>;
+  } = {};
 
   constructor({
     dst,
     keys,
     src,
     mappings,
+    syncFns,
   }: {
     src: Record<keyof Src[number], any>[];
     dst: Record<keyof Dst[number], any>[];
@@ -23,11 +36,24 @@ export class SyncEngine<
       fieldName: keyof Dst[number];
       fn: (row: Src[number]) => any;
     }>;
+    syncFns?: {
+      insertFn?: (row: Record<keyof Dst[number], any>) => any | Promise<any>;
+      deleteFn?: (row: Record<keyof Dst[number], any>) => any | Promise<any>;
+      updateFn?: (
+        row: Record<keyof Dst[number], any>,
+        fields: {
+          fieldName: keyof Dst[number];
+          oldValue: any;
+          newValue: any;
+        }[]
+      ) => any | Promise<any>;
+    };
   }) {
     this.src = src;
     this.dst = dst;
     this.keys = keys;
     this.mappings = mappings;
+    this.syncFns = syncFns || {};
   }
 
   public mapFields(): Record<keyof Dst[number], any>[] {
@@ -122,9 +148,71 @@ export class SyncEngine<
 
     return { inserted, deleted, updated };
   }
+
+  public async sync(): Promise<{
+    inserts: any[] | null;
+    deletes: any[] | null;
+    updates: any[] | null;
+  }> {
+    const { inserted, deleted, updated } = this.getChanges();
+    const results: {
+      inserts: any[] | null;
+      deletes: any[] | null;
+      updates: any[] | null;
+    } = {
+      inserts: null,
+      deletes: null,
+      updates: null,
+    };
+
+    if (this.syncFns.insertFn) {
+      const funcs = [];
+      for (const record of inserted) {
+        // check if insertFn async or not
+        if (this.syncFns.constructor.name === "AsyncFunction") {
+          funcs.push(this.syncFns.insertFn(record));
+        } else {
+          funcs.push(Promise.resolve(this.syncFns.insertFn(record)));
+        }
+      }
+      if (funcs.length > 0) {
+        results.inserts = await Promise.all(funcs);
+      }
+    }
+
+    if (this.syncFns.deleteFn) {
+      const funcs = [];
+      for (const record of deleted) {
+        if (this.syncFns.constructor.name === "AsyncFunction") {
+          funcs.push(this.syncFns.deleteFn(record));
+        } else {
+          funcs.push(Promise.resolve(this.syncFns.deleteFn(record)));
+        }
+      }
+      if (funcs.length > 0) {
+        results.deletes = await Promise.all(funcs);
+      }
+    }
+
+    if (this.syncFns.updateFn) {
+      const funcs = [];
+      for (const { row, fields } of updated) {
+        if (this.syncFns.constructor.name === "AsyncFunction") {
+          funcs.push(this.syncFns.updateFn(row, fields));
+        } else {
+          funcs.push(Promise.resolve(this.syncFns.updateFn(row, fields)));
+        }
+      }
+      if (funcs.length > 0) {
+        results.updates = await Promise.all(funcs);
+      }
+    }
+
+    return results;
+  }
 }
 
-// // Usage
+// Usage
 
 // const src = [
 //   { id: 1, firstName: "John", lastName: "Doe" },
@@ -147,11 +235,28 @@ export class SyncEngine<
 //     { fieldName: "FullName", fn: (row) => `${row.firstName} ${row.lastName}` },
 //     { fieldName: "id", fn: (row) => row.id },
 //   ],
+//   syncFns: {
+//     insertFn: async (row) => {
+//       await new Promise((resolve) => setTimeout(resolve, 1500));
+//       return row.id;
+//     },
+//     deleteFn: (row) => {
+//       return row.id;
+//     },
+//     updateFn: async (row, fields) => {
+//       await new Promise((resolve) => setTimeout(resolve, 2000));
+//       return row.id;
+//     },
+//   },
 // });
 
 // const mappings = a.mapFields();
 
 // const changes = a.getChanges();
+
+// a.sync().then((res) => {
+//   console.log(res);
+// });
 
 // console.log(JSON.stringify(src, null, 2));
 // console.log(JSON.stringify(dst, null, 2));

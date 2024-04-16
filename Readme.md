@@ -1,6 +1,6 @@
-# one way syncing engine
+# One way syncing engine
 
-## detect new, updated and deleted records
+## Detect inserted, updated and deleted records
 
 ## Usage
 
@@ -18,7 +18,7 @@ const dst = [
 
 const keys = ["id"];
 
-const a = new SyncEngine<typeof src, typeof dst>({
+const engine = new SyncEngine<typeof src, typeof dst>({
   src,
   dst,
   keys,
@@ -26,9 +26,22 @@ const a = new SyncEngine<typeof src, typeof dst>({
     { fieldName: "FullName", fn: (row) => `${row.firstName} ${row.lastName}` },
     { fieldName: "id", fn: (row) => row.id },
   ],
+  syncFns: {
+    insertFn: async (row) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return row.id;
+    },
+    deleteFn: (row) => {
+      return row.id;
+    },
+    updateFn: async (row, fields) => {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      return row.id;
+    },
+  },
 });
 
-const mappings = a.mapFields();
+const mappings = engine.mapFields();
 console.log("Mappings: ", JSON.stringify(mappings, null, 2));
 ```
 
@@ -52,7 +65,7 @@ Output:
 ```
 
 ```ts
-const changes = a.getChanges();
+const changes = engine.getChanges();
 console.log("Changes: ", JSON.stringify(changes, null, 2));
 ```
 
@@ -85,6 +98,34 @@ Output:
           "newValue": "Rid Lomba"
         }
       ]
+    }
+  ]
+}
+```
+
+```ts
+const result = await engine.sync();
+console.log("Result: ", JSON.stringify(result, null, 2));
+```
+
+Output:
+
+```json
+
+"Result": {
+  "inserted": [
+    {
+      "id": 2
+    }
+  ],
+  "deleted": [
+    {
+      "id": 3
+    }
+  ],
+  "updated": [
+    {
+      "id": 4
     }
   ]
 }
