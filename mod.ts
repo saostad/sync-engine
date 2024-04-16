@@ -1,3 +1,7 @@
+/**
+ * @module SyncEngine
+ * @description SyncEngine is a class that helps you sync data between two arrays of objects.
+ */
 export class SyncEngine<
   Src extends Record<any, any>[],
   Dst extends Record<any, any>[]
