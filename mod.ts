@@ -11,7 +11,8 @@ export class SyncEngine<
   private keys: string[];
   private mappings: {
     fieldName: keyof Dst[number];
-    fn: (row: Src[number]) => any;
+    /** sync or async function */
+    fn: (row: Src[number]) => any | Promise<any>;
   }[] = [];
   private syncFns: {
     insertFn?: (row: Record<keyof Dst[number], any>) => void | Promise<void>;
@@ -60,19 +61,28 @@ export class SyncEngine<
     this.syncFns = syncFns || {};
   }
 
-  public mapFields(): Record<keyof Dst[number], any>[] {
+  public async mapFields(): Promise<Record<keyof Dst[number], any>[]> {
     type MappedRow = Record<keyof Dst[number], any>;
-    return this.src.map((srcRow) => {
-      const dstRow: MappedRow = {} as MappedRow;
-      this.mappings.forEach(({ fieldName, fn }) => {
-        dstRow[fieldName] = fn(srcRow);
-      });
 
-      return dstRow;
-    });
+    const mappedData: MappedRow[] = [];
+    for (const srcRow of this.src) {
+      const dstRow: MappedRow = {} as MappedRow;
+
+      for (const { fieldName, fn } of this.mappings) {
+        // check if fn async or not, then call it
+        if (fn.constructor.name === "AsyncFunction") {
+          dstRow[fieldName] = await fn(srcRow);
+        } else {
+          dstRow[fieldName] = fn(srcRow);
+        }
+      }
+
+      mappedData.push(dstRow);
+    }
+    return mappedData;
   }
 
-  public getChanges(): {
+  public async getChanges(): Promise<{
     inserted: Record<keyof Dst[number], any>[];
     deleted: Record<keyof Dst[number], any>[];
     updated: {
@@ -83,12 +93,12 @@ export class SyncEngine<
         newValue: any;
       }[];
     }[];
-  } {
+  }> {
     const deleted = [];
     const inserted = [];
     const updated = [];
 
-    const mappedData = this.mapFields();
+    const mappedData = await this.mapFields();
 
     // Find deleted records, look for the key-values in this.dst that do not exist in mappedData
     for (const dstRecord of this.dst) {
@@ -158,7 +168,7 @@ export class SyncEngine<
     deletes: any[] | null;
     updates: any[] | null;
   }> {
-    const { inserted, deleted, updated } = this.getChanges();
+    const { inserted, deleted, updated } = await this.getChanges();
     const results: {
       inserts: any[] | null;
       deletes: any[] | null;

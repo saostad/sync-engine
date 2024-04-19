@@ -27,10 +27,10 @@ test("should compare source and destination arrays based on keys", async () => {
     },
   });
 
-  const mappings = syncEngine.mapFields();
+  const mappings = await syncEngine.mapFields();
   expect(mappings).toEqual(testData.mapped);
 
-  const changes = syncEngine.getChanges();
+  const changes = await syncEngine.getChanges();
   expect(changes.inserted).toEqual(testData.changes.inserted);
   expect(changes.deleted).toEqual(testData.changes.deleted);
   expect(changes.updated).toEqual(testData.changes.updated);

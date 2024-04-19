@@ -37,14 +37,25 @@ const engine = new SyncEngine<typeof src, typeof dst>({
   dst,
   keys,
   mappings: [
-    { fieldName: "FullName", fn: (row) => `${row.firstName} ${row.lastName}` },
+    {
+      fieldName: "FullName",
+      // Async function to map the FullName field
+      fn: async (row) => {
+        // await some async operation
+        return `${row.firstName} ${row.lastName}`;
+      },
+    },
+    // Sync function to map the id field
     { fieldName: "id", fn: (row) => row.id },
   ],
+  // Optional
   syncFns: {
+    // Async function to insert a record
     insertFn: async (row) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       return row.id;
     },
+    // Sync function to delete a record
     deleteFn: (row) => {
       return row.id;
     },
@@ -56,14 +67,14 @@ const engine = new SyncEngine<typeof src, typeof dst>({
 });
 ```
 
-The `mappings` option defines how the fields from the source data should be mapped to the destination data. The `syncFns` are optional and specifies the functions to be executed for inserting, deleting, and updating records.
+The `mappings` option defines how the fields from the source data should be mapped to the destination data. The `syncFns` are optional and specifies the (Async or Sync) functions to be executed for inserting, deleting, and updating records.
 
 ## Step 4 (Optional): Map the Fields
 
 Call the `mapFields()` method on the sync engine to map the fields from the source data to the destination data format.
 
 ```ts
-const mappings = engine.mapFields();
+const mappings = await engine.mapFields();
 console.log("Mappings: ", JSON.stringify(mappings, null, 2));
 ```
 
@@ -74,7 +85,7 @@ This will output the mapped fields in JSON format.
 Use the `getChanges()` method to retrieve the inserted, deleted, and updated records.
 
 ```ts
-const changes = engine.getChanges();
+const changes = await engine.getChanges();
 console.log("Changes: ", JSON.stringify(changes, null, 2));
 ```
 
@@ -92,3 +103,9 @@ console.log("Result: ", JSON.stringify(result, null, 2));
 The `sync()` method will return the result of the synchronization, indicating the inserted, deleted, and updated records.
 
 That's it! You have now successfully used the One-Way Syncing Engine to transform data, detect changes, and perform synchronization.
+
+## Additional Tips
+
+- Make sure to handle errors and edge cases appropriately.
+- Customize the syncFns and mappings options to fit your specific use case.
+- Use the getChanges() method to inspect the detected changes before performing the synchronization.
