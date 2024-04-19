@@ -8,20 +8,23 @@ test("should compare source and destination arrays based on keys", async () => {
     mappings: [
       {
         fieldName: "FullName",
-        fn: (row) => `${row.firstName} ${row.lastName}`,
+        fn: async (row) => {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return `${row.firstName} ${row.lastName}`
+        },
       },
       { fieldName: "id", fn: (row) => row.id },
     ],
     syncFns: {
       insertFn: async (row) => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
         return row.id;
       },
       deleteFn: (row) => {
         return row.id;
       },
       updateFn: async (row, fields) => {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         return row.id;
       },
     },
