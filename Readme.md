@@ -8,23 +8,26 @@ First, define the source and destination data arrays. In this example, we have `
 
 ```ts
 const src = [
-  { id: 1, firstName: "John", lastName: "Doe" },
-  { id: 2, firstName: "Jane", lastName: "Diana" },
-  { id: 4, firstName: "Rid", lastName: "Lomba" },
+  { id: 1, company: 1, firstName: "John", lastName: "Doe", age: null },
+  { id: 1, company: 2, firstName: "John", lastName: "Doe", age: null },
+  { id: 2, company: 1, firstName: "Jane", lastName: "Diana", age: null },
+  { id: 4, company: 1, firstName: "Rid", lastName: "Lomba", age: 25 },
+  { id: 5, company: 1, firstName: "Homa", lastName: "Shiri", age: 30 },
 ];
 const dst = [
-  { id: 1, FullName: "John Doe" },
-  { id: 3, FullName: "Doe Risko" },
-  { id: 4, FullName: "Fids Almo" },
+  { id: 1, company: 1, FullName: "John Doe", bio: { age: null } },
+  { id: 3, company: 1, FullName: "Doe Risko", bio: { age: 30 } },
+  { id: 4, company: 1, FullName: "Fids Almo", bio: { age: 26 } },
+  { id: 5, company: 1, FullName: "Homa Shiri", bio: { age: 30 } },
 ];
 ```
 
 ## Step 2: Define the Keys
 
-Specify the keys that uniquely identify each record in the arrays. In this example, we use the `"id"` property as the key.
+Specify the keys that uniquely identify each record in the arrays. In this example, we use the `"id"` and `"company"` property as the key.
 
 ```ts
-const keys = ["id"];
+const keys = ["id", "company"];
 ```
 
 ## Step 3: Create the Sync Engine
@@ -42,11 +45,12 @@ const engine = new SyncEngine<typeof src, typeof dst>({
       // Async function to map the FullName field
       fn: async (row) => {
         // await some async operation
-        return `${row.firstName} ${row.lastName}`;
+        return Promise.resolve(`${row.firstName} ${row.lastName}`);
       },
     },
-    // Sync function to map the id field
     { fieldName: "id", fn: (row) => row.id },
+    { fieldName: "company", fn: (row) => row.company },
+    { fieldName: "bio", fn: (row) => ({ age: row.age }) }, // Nested field
   ],
   // Optional
   syncFns: {
