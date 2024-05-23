@@ -251,61 +251,61 @@ export class SyncEngine<
 }
 
 // sample usage
-const src = [
-  { id: 1, company: 1, firstName: "John", lastName: "Doe", age: null },
-  { id: 1, company: 2, firstName: "John", lastName: "Doe", age: null },
-  { id: 2, company: 1, firstName: "Jane", lastName: "Diana", age: null },
-  { id: 4, company: 1, firstName: "Rid", lastName: "Lomba", age: 25 },
-  { id: 5, company: 1, firstName: "Homa", lastName: "Shiri", age: 30 },
-];
-const dst = [
-  { id: 1, company: 1, FullName: "John Doe", bio: { age: null } },
-  { id: 3, company: 1, FullName: "Doe Risko", bio: { age: 30 } },
-  { id: 4, company: 1, FullName: "Fids Almo", bio: { age: 26 } },
-  { id: 5, company: 1, FullName: "Homa Shiri", bio: { age: 30 } },
-];
-const keys = ["id", "company"];
+// const src = [
+//   { id: 1, company: 1, firstName: "John", lastName: "Doe", age: null },
+//   { id: 1, company: 2, firstName: "John", lastName: "Doe", age: null },
+//   { id: 2, company: 1, firstName: "Jane", lastName: "Diana", age: null },
+//   { id: 4, company: 1, firstName: "Rid", lastName: "Lomba", age: 25 },
+//   { id: 5, company: 1, firstName: "Homa", lastName: "Shiri", age: 30 },
+// ];
+// const dst = [
+//   { id: 1, company: 1, FullName: "John Doe", bio: { age: null } },
+//   { id: 3, company: 1, FullName: "Doe Risko", bio: { age: 30 } },
+//   { id: 4, company: 1, FullName: "Fids Almo", bio: { age: 26 } },
+//   { id: 5, company: 1, FullName: "Homa Shiri", bio: { age: 30 } },
+// ];
+// const keys = ["id", "company"];
 
-const engine = new SyncEngine<typeof src, typeof dst>({
-  src,
-  dst,
-  keys,
-  mappings: [
-    {
-      fieldName: "FullName",
-      fn: async (row) => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return `${row.firstName} ${row.lastName}`;
-      },
-    },
-    { fieldName: "id", fn: (row) => row.id },
-    { fieldName: "company", fn: (row) => row.company },
-    {
-      fieldName: "bio",
-      fn: (row) => {
-        return {
-          age: row.age,
-        };
-      },
-    },
-  ],
-  syncFns: {
-    insertFn: async (row) => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return row.id;
-    },
-    deleteFn: (row) => {
-      return row.id;
-    },
-    updateFn: async (row, fields) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      return row.id;
-    },
-  },
-});
+// const engine = new SyncEngine<typeof src, typeof dst>({
+//   src,
+//   dst,
+//   keys,
+//   mappings: [
+//     {
+//       fieldName: "FullName",
+//       fn: async (row) => {
+//         await new Promise((resolve) => setTimeout(resolve, 100));
+//         return `${row.firstName} ${row.lastName}`;
+//       },
+//     },
+//     { fieldName: "id", fn: (row) => row.id },
+//     { fieldName: "company", fn: (row) => row.company },
+//     {
+//       fieldName: "bio",
+//       fn: (row) => {
+//         return {
+//           age: row.age,
+//         };
+//       },
+//     },
+//   ],
+//   syncFns: {
+//     insertFn: async (row) => {
+//       await new Promise((resolve) => setTimeout(resolve, 500));
+//       return row.id;
+//     },
+//     deleteFn: (row) => {
+//       return row.id;
+//     },
+//     updateFn: async (row, fields) => {
+//       await new Promise((resolve) => setTimeout(resolve, 1000));
+//       return row.id;
+//     },
+//   },
+// });
 
-const mappings = await engine.mapFields();
-console.log(mappings);
+// const mappings = await engine.mapFields();
+// console.log(mappings);
 
-const changes = await engine.getChanges();
-console.log(JSON.stringify(changes, null, 2));
+// const changes = await engine.getChanges();
+// console.log(JSON.stringify(changes, null, 2));
