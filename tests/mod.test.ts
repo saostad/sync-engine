@@ -13,7 +13,11 @@ test("should compare source and destination arrays based on keys", async () => {
           return `${row.firstName} ${row.lastName}`;
         },
       },
-      { dstField: "id", isKey: true, srcField: "id" },
+      { 
+        dstField: "id",
+        srcField: "id",
+        isKey: true, 
+      },
       { dstField: "company", isKey: true, fn: (row) => row.company },
       {
         dstField: "bio",

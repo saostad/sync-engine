@@ -10,20 +10,22 @@ export class SyncEngine<
   private dst: Record<keyof Dst[number], any>[];
   private keys: string[];
   private mappings: Array<
-    | {
-        dstField: keyof Dst[number];
-        srcField: keyof Src[number];
-        isKey?: boolean;
-        compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
-      }
-    | {
-        dstField: keyof Dst[number];
-        isKey?: boolean;
-        /** sync or async function */
-        fn: (row: Src[number]) => any | Promise<any>;
-        /** a custom function to compare rows */
-        compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
-      }
+    {
+      dstField: keyof Dst[number];
+      isKey?: boolean;
+      /** custom function to compare rows */
+      compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
+      /** this function will be pass to updateFn in syncFns to generate update value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api, it will be pass to updateFn as a parameter and user will be responsible of how to use it. */
+      updateVal?: (row: Dst[number]) => any;
+    } & (
+      | {
+          srcField: keyof Src[number];
+        }
+      | {
+          /** function to generate dst value */
+          fn: (row: Src[number]) => any | Promise<any>;
+        }
+    )
   > = [];
   private syncFns: {
     insertFn?: (row: Record<keyof Dst[number], any>) => void | Promise<void>;
@@ -32,6 +34,10 @@ export class SyncEngine<
       row: Record<keyof Dst[number], any>,
       fields: {
         fieldName: keyof Dst[number];
+        exceptions?: {
+          update?: any;
+          insert?: any;
+        };
         oldValue: any;
         newValue: any;
       }[]
@@ -47,19 +53,20 @@ export class SyncEngine<
     src: Record<keyof Src[number], any>[];
     dst: Record<keyof Dst[number], any>[];
     mappings: Array<
-      | {
-          dstField: keyof Dst[number];
-          srcField: keyof Src[number];
-          isKey?: boolean;
-          compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
-        }
-      | {
-          dstField: keyof Dst[number];
-          isKey?: boolean;
-          fn: (row: Src[number]) => any;
-          /** gets mapped record and real dst record and find the differences for specific field */
-          compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
-        }
+      {
+        dstField: keyof Dst[number];
+        isKey?: boolean;
+        /** a custom function to compare rows */
+        compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
+      } & (
+        | {
+            srcField: keyof Src[number];
+          }
+        | {
+            /** function to generate dst value */
+            fn: (row: Src[number]) => any | Promise<any>;
+          }
+      )
     >;
     syncFns?: {
       insertFn?: (row: Record<keyof Dst[number], any>) => any | Promise<any>;
@@ -68,6 +75,10 @@ export class SyncEngine<
         row: Record<keyof Dst[number], any>,
         fields: {
           fieldName: keyof Dst[number];
+          exceptions?: {
+            update?: any;
+            insert?: any;
+          };
           oldValue: any;
           newValue: any;
         }[]
