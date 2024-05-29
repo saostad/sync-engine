@@ -11,8 +11,11 @@ export class SyncEngine<
   private keys: string[];
   private mappings: {
     fieldName: keyof Dst[number];
+    isKey?: boolean;
     /** sync or async function */
     fn: (row: Src[number]) => any | Promise<any>;
+    /** a custom function to compare rows */
+    compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
   }[] = [];
   private syncFns: {
     insertFn?: (row: Record<keyof Dst[number], any>) => void | Promise<void>;
@@ -29,17 +32,18 @@ export class SyncEngine<
 
   constructor({
     dst,
-    keys,
     src,
     mappings,
     syncFns,
   }: {
     src: Record<keyof Src[number], any>[];
     dst: Record<keyof Dst[number], any>[];
-    keys: string[];
     mappings: Array<{
       fieldName: keyof Dst[number];
+      isKey?: boolean;
       fn: (row: Src[number]) => any;
+      /** gets mapped record and real dst record and find the differences for specific field */
+      compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
     }>;
     syncFns?: {
       insertFn?: (row: Record<keyof Dst[number], any>) => any | Promise<any>;
@@ -56,7 +60,9 @@ export class SyncEngine<
   }) {
     this.src = src;
     this.dst = dst;
-    this.keys = keys;
+    this.keys = mappings
+      .filter((m) => m.isKey)
+      .map((m) => m.fieldName as string);
     this.mappings = mappings;
     this.syncFns = syncFns || {};
   }
@@ -142,23 +148,25 @@ export class SyncEngine<
         }[] = [];
 
         for (const [key, value] of Object.entries(srcRecord)) {
-          if (dstRecord[key] !== value) {
-            // check if value is an object, use _shallowEqual to compare
-            if (typeof value === "object") {
-              if (!this._shallowEqual(value, dstRecord[key])) {
-                fields.push({
-                  fieldName: key,
-                  oldValue: dstRecord[key],
-                  newValue: value,
-                });
-              }
-            } else {
+          // check if compareFn exists
+          const compareFn = this.mappings.find(
+            (m) => m.fieldName === key
+          )?.compareFn;
+
+          if (compareFn) {
+            if (!compareFn(srcRecord, dstRecord)) {
               fields.push({
                 fieldName: key,
                 oldValue: dstRecord[key],
                 newValue: value,
               });
             }
+          } else if (dstRecord[key] !== value) {
+            fields.push({
+              fieldName: key,
+              oldValue: dstRecord[key],
+              newValue: value,
+            });
           }
         }
 
@@ -175,7 +183,7 @@ export class SyncEngine<
   }
 
   // to compare two objects
-  private _shallowEqual(src: Record<any, any>, dst: Record<any, any>) {
+  static shallowEqual(src: Record<any, any>, dst: Record<any, any>) {
     if (typeof src !== "object" || typeof dst !== "object") {
       return false;
     }
@@ -185,6 +193,10 @@ export class SyncEngine<
       }
     }
     return true;
+  }
+
+  static plainCompare(src: Record<any, any>, dst: Record<any, any>) {
+    return dst !== src;
   }
 
   public async sync(): Promise<{
@@ -251,61 +263,63 @@ export class SyncEngine<
 }
 
 // sample usage
-// const src = [
-//   { id: 1, company: 1, firstName: "John", lastName: "Doe", age: null },
-//   { id: 1, company: 2, firstName: "John", lastName: "Doe", age: null },
-//   { id: 2, company: 1, firstName: "Jane", lastName: "Diana", age: null },
-//   { id: 4, company: 1, firstName: "Rid", lastName: "Lomba", age: 25 },
-//   { id: 5, company: 1, firstName: "Homa", lastName: "Shiri", age: 30 },
-// ];
-// const dst = [
-//   { id: 1, company: 1, FullName: "John Doe", bio: { age: null } },
-//   { id: 3, company: 1, FullName: "Doe Risko", bio: { age: 30 } },
-//   { id: 4, company: 1, FullName: "Fids Almo", bio: { age: 26 } },
-//   { id: 5, company: 1, FullName: "Homa Shiri", bio: { age: 30 } },
-// ];
-// const keys = ["id", "company"];
+const src = [
+  { id: 1, company: 1, firstName: "John", lastName: "Doe", age: null },
+  { id: 1, company: 2, firstName: "John", lastName: "Doe", age: null },
+  { id: 2, company: 1, firstName: "Jane", lastName: "Diana", age: null },
+  { id: 4, company: 1, firstName: "Rid", lastName: "Lomba", age: 25 },
+  { id: 5, company: 1, firstName: "Homa", lastName: "Shiri", age: 30 },
+];
+const dst = [
+  { id: 1, company: 1, FullName: "John Doe", bio: { age: null } },
+  { id: 3, company: 1, FullName: "Doe Risko", bio: { age: 30 } },
+  { id: 4, company: 1, FullName: "Fids Almo", bio: { age: 26 } },
+  { id: 5, company: 1, FullName: "Homa Shiri", bio: { age: 30 } },
+];
 
-// const engine = new SyncEngine<typeof src, typeof dst>({
-//   src,
-//   dst,
-//   keys,
-//   mappings: [
-//     {
-//       fieldName: "FullName",
-//       fn: async (row) => {
-//         await new Promise((resolve) => setTimeout(resolve, 100));
-//         return `${row.firstName} ${row.lastName}`;
-//       },
-//     },
-//     { fieldName: "id", fn: (row) => row.id },
-//     { fieldName: "company", fn: (row) => row.company },
-//     {
-//       fieldName: "bio",
-//       fn: (row) => {
-//         return {
-//           age: row.age,
-//         };
-//       },
-//     },
-//   ],
-//   syncFns: {
-//     insertFn: async (row) => {
-//       await new Promise((resolve) => setTimeout(resolve, 500));
-//       return row.id;
-//     },
-//     deleteFn: (row) => {
-//       return row.id;
-//     },
-//     updateFn: async (row, fields) => {
-//       await new Promise((resolve) => setTimeout(resolve, 1000));
-//       return row.id;
-//     },
-//   },
-// });
+const engine = new SyncEngine<typeof src, typeof dst>({
+  src,
+  dst,
+  mappings: [
+    {
+      fieldName: "FullName",
+      fn: async (row) => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return `${row.firstName} ${row.lastName}`;
+      },
+    },
+    { fieldName: "id", isKey: true, fn: (row) => row.id },
+    { fieldName: "company", isKey: true, fn: (row) => row.company },
+    {
+      fieldName: "bio",
+      compareFn(src, dst) {
+        return src.bio.age === dst.bio.age;
+      },
+      fn: (row) => {
+        return {
+          age: row.age,
+        };
+      },
+    },
+  ],
+  syncFns: {
+    insertFn: async (row) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return row.id;
+    },
+    deleteFn: (row) => {
+      return row.id;
+    },
+    updateFn: async (row, fields) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return row.id;
+    },
+  },
+});
 
-// const mappings = await engine.mapFields();
-// console.log(mappings);
+const mappings = await engine.mapFields();
+console.log(mappings);
 
-// const changes = await engine.getChanges();
+const changes = await engine.getChanges();
 // console.log(JSON.stringify(changes, null, 2));
+console.log(changes.updated);

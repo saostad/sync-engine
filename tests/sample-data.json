@@ -3,74 +3,107 @@
     "src": [
       {
         "id": 1,
+        "company": 1,
         "firstName": "John",
-        "lastName": "Doe"
+        "lastName": "Doe",
+        "age": null
+      },
+      {
+        "id": 1,
+        "company": 2,
+        "firstName": "John",
+        "lastName": "Doe",
+        "age": null
       },
       {
         "id": 2,
+        "company": 1,
         "firstName": "Jane",
-        "lastName": "Diana"
+        "lastName": "Diana",
+        "age": null
       },
       {
         "id": 4,
+        "company": 1,
         "firstName": "Rid",
-        "lastName": "Lomba"
+        "lastName": "Lomba",
+        "age": 25
+      },
+      {
+        "id": 5,
+        "company": 1,
+        "firstName": "Homa",
+        "lastName": "Shiri",
+        "age": 30
       }
     ],
     "dst": [
-      {
-        "id": 1,
-        "FullName": "John Doe"
-      },
-      {
-        "id": 3,
-        "FullName": "Doe Risko"
-      },
-      {
-        "id": 4,
-        "FullName": "Fids Almo"
-      }
-    ],
-    "keys": ["id"]
+      { "id": 1, "company": 1, "FullName": "John Doe", "bio": { "age": null } },
+      { "id": 3, "company": 1, "FullName": "Doe Risko", "bio": { "age": 30 } },
+      { "id": 4, "company": 1, "FullName": "Fids Almo", "bio": { "age": 26 } },
+      { "id": 5, "company": 1, "FullName": "Homa Shiri", "bio": { "age": 30 } }
+    ]
   },
   "mapped": [
-    {
-      "FullName": "John Doe",
-      "id": 1
-    },
-    {
-      "FullName": "Jane Diana",
-      "id": 2
-    },
-    {
-      "FullName": "Rid Lomba",
-      "id": 4
-    }
+    { "FullName": "John Doe", "id": 1, "company": 1, "bio": { "age": null } },
+    { "FullName": "John Doe", "id": 1, "company": 2, "bio": { "age": null } },
+    { "FullName": "Jane Diana", "id": 2, "company": 1, "bio": { "age": null } },
+    { "FullName": "Rid Lomba", "id": 4, "company": 1, "bio": { "age": 25 } },
+    { "FullName": "Homa Shiri", "id": 5, "company": 1, "bio": { "age": 30 } }
   ],
   "changes": {
     "inserted": [
       {
+        "FullName": "John Doe",
+        "id": 1,
+        "company": 2,
+        "bio": {
+          "age": null
+        }
+      },
+      {
         "FullName": "Jane Diana",
-        "id": 2
+        "id": 2,
+        "company": 1,
+        "bio": {
+          "age": null
+        }
       }
     ],
     "deleted": [
       {
         "id": 3,
-        "FullName": "Doe Risko"
+        "company": 1,
+        "FullName": "Doe Risko",
+        "bio": {
+          "age": 30
+        }
       }
     ],
     "updated": [
       {
         "row": {
           "FullName": "Rid Lomba",
-          "id": 4
+          "id": 4,
+          "company": 1,
+          "bio": {
+            "age": 25
+          }
         },
         "fields": [
           {
             "fieldName": "FullName",
             "oldValue": "Fids Almo",
             "newValue": "Rid Lomba"
+          },
+          {
+            "fieldName": "bio",
+            "oldValue": {
+              "age": 26
+            },
+            "newValue": {
+              "age": 25
+            }
           }
         ]
       }
