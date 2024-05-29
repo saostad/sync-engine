@@ -9,14 +9,22 @@ export class SyncEngine<
   private src: Record<keyof Src[number], any>[];
   private dst: Record<keyof Dst[number], any>[];
   private keys: string[];
-  private mappings: {
-    fieldName: keyof Dst[number];
-    isKey?: boolean;
-    /** sync or async function */
-    fn: (row: Src[number]) => any | Promise<any>;
-    /** a custom function to compare rows */
-    compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
-  }[] = [];
+  private mappings: Array<
+    | {
+        dstField: keyof Dst[number];
+        srcField: keyof Src[number];
+        isKey?: boolean;
+        compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
+      }
+    | {
+        dstField: keyof Dst[number];
+        isKey?: boolean;
+        /** sync or async function */
+        fn: (row: Src[number]) => any | Promise<any>;
+        /** a custom function to compare rows */
+        compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
+      }
+  > = [];
   private syncFns: {
     insertFn?: (row: Record<keyof Dst[number], any>) => void | Promise<void>;
     deleteFn?: (row: Record<keyof Dst[number], any>) => void | Promise<void>;
@@ -38,13 +46,21 @@ export class SyncEngine<
   }: {
     src: Record<keyof Src[number], any>[];
     dst: Record<keyof Dst[number], any>[];
-    mappings: Array<{
-      fieldName: keyof Dst[number];
-      isKey?: boolean;
-      fn: (row: Src[number]) => any;
-      /** gets mapped record and real dst record and find the differences for specific field */
-      compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
-    }>;
+    mappings: Array<
+      | {
+          dstField: keyof Dst[number];
+          srcField: keyof Src[number];
+          isKey?: boolean;
+          compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
+        }
+      | {
+          dstField: keyof Dst[number];
+          isKey?: boolean;
+          fn: (row: Src[number]) => any;
+          /** gets mapped record and real dst record and find the differences for specific field */
+          compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
+        }
+    >;
     syncFns?: {
       insertFn?: (row: Record<keyof Dst[number], any>) => any | Promise<any>;
       deleteFn?: (row: Record<keyof Dst[number], any>) => any | Promise<any>;
@@ -62,7 +78,7 @@ export class SyncEngine<
     this.dst = dst;
     this.keys = mappings
       .filter((m) => m.isKey)
-      .map((m) => m.fieldName as string);
+      .map((m) => m.dstField as string);
     this.mappings = mappings;
     this.syncFns = syncFns || {};
   }
@@ -74,12 +90,17 @@ export class SyncEngine<
     for (const srcRow of this.src) {
       const dstRow: MappedRow = {} as MappedRow;
 
-      for (const { fieldName, fn } of this.mappings) {
-        // check if fn async or not, then call it
-        if (fn.constructor.name === "AsyncFunction") {
-          dstRow[fieldName] = await fn(srcRow);
+      for (const mapping of this.mappings) {
+        if ("srcField" in mapping) {
+          dstRow[mapping.dstField] = srcRow[mapping.srcField];
         } else {
-          dstRow[fieldName] = fn(srcRow);
+          const { dstField, fn } = mapping;
+          // check if fn async or not, then call it
+          if (fn.constructor.name === "AsyncFunction") {
+            dstRow[dstField] = await fn(srcRow);
+          } else {
+            dstRow[dstField] = fn(srcRow);
+          }
         }
       }
 
@@ -150,7 +171,7 @@ export class SyncEngine<
         for (const [key, value] of Object.entries(srcRecord)) {
           // check if compareFn exists
           const compareFn = this.mappings.find(
-            (m) => m.fieldName === key
+            (m) => "fn" in m && m.dstField === key
           )?.compareFn;
 
           if (compareFn) {
@@ -282,16 +303,16 @@ const engine = new SyncEngine<typeof src, typeof dst>({
   dst,
   mappings: [
     {
-      fieldName: "FullName",
+      dstField: "FullName",
       fn: async (row) => {
         await new Promise((resolve) => setTimeout(resolve, 100));
         return `${row.firstName} ${row.lastName}`;
       },
     },
-    { fieldName: "id", isKey: true, fn: (row) => row.id },
-    { fieldName: "company", isKey: true, fn: (row) => row.company },
+    { dstField: "id", isKey: true, srcField: "id" },
+    { dstField: "company", isKey: true, fn: (row) => row.company },
     {
-      fieldName: "bio",
+      dstField: "bio",
       compareFn(src, dst) {
         return src.bio.age === dst.bio.age;
       },

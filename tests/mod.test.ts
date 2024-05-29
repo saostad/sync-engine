@@ -7,16 +7,16 @@ test("should compare source and destination arrays based on keys", async () => {
     ...testData.data,
     mappings: [
       {
-        fieldName: "FullName",
+        dstField: "FullName",
         fn: async (row) => {
           await new Promise((resolve) => setTimeout(resolve, 100));
           return `${row.firstName} ${row.lastName}`;
         },
       },
-      { fieldName: "id", isKey: true, fn: (row) => row.id },
-      { fieldName: "company", isKey: true, fn: (row) => row.company },
+      { dstField: "id", isKey: true, srcField: "id" },
+      { dstField: "company", isKey: true, fn: (row) => row.company },
       {
-        fieldName: "bio",
+        dstField: "bio",
         compareFn: (src, dst)=>{
           return src.bio.age === dst.bio.age;
         },
