@@ -15,8 +15,10 @@ export class SyncEngine<
       isKey?: boolean;
       /** custom function to compare rows */
       compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
-      /** this function will be pass to updateFn in syncFns to generate update value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api, it will be pass to updateFn as a parameter and user will be responsible of how to use it. */
+      /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, updated[number].overrides property. */
       updateVal?: (row: Dst[number]) => any;
+      /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, inserted[number].overrides property. */
+      insertVal?: (row: Dst[number]) => any;
     } & (
       | {
           srcField: keyof Src[number];
@@ -34,10 +36,6 @@ export class SyncEngine<
       row: Record<keyof Dst[number], any>,
       fields: {
         fieldName: keyof Dst[number];
-        exceptions?: {
-          update?: any;
-          insert?: any;
-        };
         oldValue: any;
         newValue: any;
       }[]
@@ -58,6 +56,10 @@ export class SyncEngine<
         isKey?: boolean;
         /** a custom function to compare rows */
         compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
+        /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, updated[number].overrides property. */
+        updateVal?: (row: Dst[number]) => any;
+        /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, inserted[number].overrides property. */
+        insertVal?: (row: Dst[number]) => any;
       } & (
         | {
             srcField: keyof Src[number];
@@ -75,10 +77,6 @@ export class SyncEngine<
         row: Record<keyof Dst[number], any>,
         fields: {
           fieldName: keyof Dst[number];
-          exceptions?: {
-            update?: any;
-            insert?: any;
-          };
           oldValue: any;
           newValue: any;
         }[]
@@ -121,10 +119,20 @@ export class SyncEngine<
   }
 
   public async getChanges(): Promise<{
-    inserted: Record<keyof Dst[number], any>[];
+    inserted: {
+      row: Record<keyof Dst[number], any>;
+      overrides?: {
+        fieldName: keyof Dst[number];
+        value: any;
+      }[];
+    }[];
     deleted: Record<keyof Dst[number], any>[];
     updated: {
       row: Record<keyof Dst[number], any>;
+      overrides?: {
+        fieldName: keyof Dst[number];
+        value: any;
+      }[];
       fields: {
         fieldName: keyof Dst[number];
         oldValue: any;
@@ -160,7 +168,29 @@ export class SyncEngine<
       });
 
       if (!exists) {
-        inserted.push(srcRecord);
+        const overrides: {
+          fieldName: keyof Dst[number];
+          value: any;
+        }[] = [];
+
+        for (const [key, value] of Object.entries(srcRecord)) {
+          const insertValFn = this.mappings.find(
+            (m) => m.dstField === key
+          )?.insertVal;
+
+          if (insertValFn) {
+            const insertedValue = insertValFn(srcRecord);
+            overrides.push({
+              fieldName: key,
+              value: insertedValue,
+            });
+          }
+        }
+
+        inserted.push({
+          row: srcRecord,
+          overrides: overrides.length > 0 ? overrides : undefined,
+        });
       }
     }
 
@@ -177,6 +207,11 @@ export class SyncEngine<
           fieldName: keyof Dst[number];
           oldValue: any;
           newValue: any;
+        }[] = [];
+
+        const overrides: {
+          fieldName: keyof Dst[number];
+          value: any;
         }[] = [];
 
         for (const [key, value] of Object.entries(srcRecord)) {
@@ -200,35 +235,31 @@ export class SyncEngine<
               newValue: value,
             });
           }
+
+          const updateValFn = this.mappings.find(
+            (m) => m.dstField === key
+          )?.updateVal;
+
+          if (updateValFn) {
+            const updatedValue = updateValFn(srcRecord);
+            overrides.push({
+              fieldName: key,
+              value: updatedValue,
+            });
+          }
         }
 
-        if (fields.length > 0) {
+        if (fields.length > 0 || overrides.length > 0) {
           updated.push({
             row: srcRecord,
             fields,
+            overrides: overrides.length > 0 ? overrides : undefined,
           });
         }
       }
     }
 
     return { inserted, deleted, updated };
-  }
-
-  // to compare two objects
-  static shallowEqual(src: Record<any, any>, dst: Record<any, any>) {
-    if (typeof src !== "object" || typeof dst !== "object") {
-      return false;
-    }
-    for (let key in src) {
-      if (src[key] !== dst[key]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  static plainCompare(src: Record<any, any>, dst: Record<any, any>) {
-    return dst !== src;
   }
 
   public async sync(): Promise<{
@@ -250,11 +281,19 @@ export class SyncEngine<
     if (this.syncFns.insertFn) {
       const funcs = [];
       for (const record of inserted) {
-        // check if insertFn async or not
-        if (this.syncFns.constructor.name === "AsyncFunction") {
-          funcs.push(this.syncFns.insertFn(record));
+        const { row, overrides } = record;
+        const finalRow = { ...row };
+
+        if (overrides) {
+          for (const { fieldName, value } of overrides) {
+            finalRow[fieldName] = value;
+          }
+        }
+
+        if (this.syncFns.insertFn.constructor.name === "AsyncFunction") {
+          funcs.push(this.syncFns.insertFn(finalRow));
         } else {
-          funcs.push(Promise.resolve(this.syncFns.insertFn(record)));
+          funcs.push(Promise.resolve(this.syncFns.insertFn(finalRow)));
         }
       }
       if (funcs.length > 0) {
@@ -295,63 +334,70 @@ export class SyncEngine<
 }
 
 // sample usage
-const src = [
-  { id: 1, company: 1, firstName: "John", lastName: "Doe", age: null },
-  { id: 1, company: 2, firstName: "John", lastName: "Doe", age: null },
-  { id: 2, company: 1, firstName: "Jane", lastName: "Diana", age: null },
-  { id: 4, company: 1, firstName: "Rid", lastName: "Lomba", age: 25 },
-  { id: 5, company: 1, firstName: "Homa", lastName: "Shiri", age: 30 },
-];
-const dst = [
-  { id: 1, company: 1, FullName: "John Doe", bio: { age: null } },
-  { id: 3, company: 1, FullName: "Doe Risko", bio: { age: 30 } },
-  { id: 4, company: 1, FullName: "Fids Almo", bio: { age: 26 } },
-  { id: 5, company: 1, FullName: "Homa Shiri", bio: { age: 30 } },
-];
+// const src = [
+//   { id: 1, company: 1, firstName: "John", lastName: "Doe", age: null },
+//   { id: 1, company: 2, firstName: "John", lastName: "Doe", age: null },
+//   { id: 2, company: 1, firstName: "Jane", lastName: "Diana", age: null },
+//   { id: 4, company: 1, firstName: "Rid", lastName: "Lomba", age: 25 },
+//   { id: 5, company: 1, firstName: "Homa", lastName: "Shiri", age: 30 },
+// ];
+// const dst = [
+//   { id: 1, company: 1, FullName: "John Doe", bio: { age: null } },
+//   { id: 3, company: 1, FullName: "Doe Risko", bio: { age: 30 } },
+//   { id: 4, company: 1, FullName: "Fids Almo", bio: { age: 26 } },
+//   { id: 5, company: 1, FullName: "Homa Shiri", bio: { age: 30 } },
+// ];
 
-const engine = new SyncEngine<typeof src, typeof dst>({
-  src,
-  dst,
-  mappings: [
-    {
-      dstField: "FullName",
-      fn: async (row) => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return `${row.firstName} ${row.lastName}`;
-      },
-    },
-    { dstField: "id", isKey: true, srcField: "id" },
-    { dstField: "company", isKey: true, fn: (row) => row.company },
-    {
-      dstField: "bio",
-      compareFn(src, dst) {
-        return src.bio.age === dst.bio.age;
-      },
-      fn: (row) => {
-        return {
-          age: row.age,
-        };
-      },
-    },
-  ],
-  syncFns: {
-    insertFn: async (row) => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return row.id;
-    },
-    deleteFn: (row) => {
-      return row.id;
-    },
-    updateFn: async (row, fields) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      return row.id;
-    },
-  },
-});
+// const engine = new SyncEngine<typeof src, typeof dst>({
+//   src,
+//   dst,
+//   mappings: [
+//     {
+//       dstField: "FullName",
+//       updateVal: (row) => {
+//         return `${row.company}-${row.id}`;
+//       },
+//       insertVal: (row) => {
+//         return `${row.company}-${row.id}`;
+//       },
+//       fn: async (row) => {
+//         await new Promise((resolve) => setTimeout(resolve, 100));
+//         return `${row.firstName} ${row.lastName}`;
+//       },
+//     },
+//     { dstField: "id", isKey: true, srcField: "id" },
+//     { dstField: "company", isKey: true, fn: (row) => row.company },
+//     {
+//       dstField: "bio",
+//       compareFn(src, dst) {
+//         return src.bio.age === dst.bio.age;
+//       },
+//       fn: (row) => {
+//         return {
+//           age: row.age,
+//         };
+//       },
+//     },
+//   ],
+//   syncFns: {
+//     insertFn: async (row) => {
+//       await new Promise((resolve) => setTimeout(resolve, 500));
+//       return row.id;
+//     },
+//     deleteFn: (row) => {
+//       return row.id;
+//     },
+//     updateFn: async (row, fields) => {
+//       await new Promise((resolve) => setTimeout(resolve, 1000));
+//       return row.id;
+//     },
+//   },
+// });
 
-const mappings = await engine.mapFields();
-console.log(mappings);
+// const mappings = await engine.mapFields();
+// console.log(mappings);
 
-const changes = await engine.getChanges();
-// console.log(JSON.stringify(changes, null, 2));
-console.log(changes.updated);
+// const changes = await engine.getChanges();
+// // console.log(JSON.stringify(changes, null, 2));
+// console.log(changes.inserted);
+// console.log(changes.updated);
