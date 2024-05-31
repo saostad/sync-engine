@@ -398,7 +398,7 @@ export class SyncEngine<
 // console.log(mappings);
 
 // const changes = await engine.getChanges();
-// // console.log(JSON.stringify(changes, null, 2));
+// console.log(JSON.stringify(changes, null, 2));
 // console.log("inserted:", changes.inserted);
 // console.log("updated:", changes.updated);
 // console.log("deleted:", changes.deleted);

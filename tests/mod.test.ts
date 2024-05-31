@@ -8,20 +8,22 @@ test("should compare source and destination arrays based on keys", async () => {
     mappings: [
       {
         dstField: "FullName",
+        updateVal: (row) => {
+          return `${row.company}-${row.id}`;
+        },
+        insertVal: (row) => {
+          return `${row.company}-${row.id}`;
+        },
         fn: async (row) => {
           await new Promise((resolve) => setTimeout(resolve, 100));
           return `${row.firstName} ${row.lastName}`;
         },
       },
-      { 
-        dstField: "id",
-        srcField: "id",
-        isKey: true, 
-      },
+      { dstField: "id", isKey: true, srcField: "id" },
       { dstField: "company", isKey: true, fn: (row) => row.company },
       {
         dstField: "bio",
-        compareFn: (src, dst)=>{
+        compareFn(src, dst) {
           return src.bio.age === dst.bio.age;
         },
         fn: (row) => {
