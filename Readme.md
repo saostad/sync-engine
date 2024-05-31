@@ -1,3 +1,7 @@
+Here's an updated version of your README file to include the new changes:
+
+---
+
 # One-Way Syncing Engine
 
 This guide will walk you through the process of using the One-Way Syncing Engine to transform data, detect inserted, updated, and deleted records, and perform synchronization.
@@ -22,15 +26,7 @@ const dst = [
 ];
 ```
 
-## Step 2: Define the Keys
-
-Specify the keys that uniquely identify each record in the arrays. In this example, we use the `"id"` and `"company"` property as the key.
-
-```ts
-const keys = ["id", "company"];
-```
-
-## Step 3: Create the Sync Engine
+## Step 2: Create the Sync Engine
 
 Create an instance of the `SyncEngine` class, providing the necessary configuration options:
 
@@ -38,42 +34,41 @@ Create an instance of the `SyncEngine` class, providing the necessary configurat
 const engine = new SyncEngine<typeof src, typeof dst>({
   src,
   dst,
-  keys,
   mappings: [
     {
-      fieldName: "FullName",
-      // Async function to map the FullName field
+      dstField: "FullName",
+      updateVal: (row) => `${row.company}-${row.id}`,
+      insertVal: (row) => `${row.company}-${row.id}`,
       fn: async (row) => {
-        // await some async operation
-        return Promise.resolve(`${row.firstName} ${row.lastName}`);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return `${row.firstName} ${row.lastName}`;
       },
     },
-    { fieldName: "id", fn: (row) => row.id },
-    { fieldName: "company", fn: (row) => row.company },
-    { fieldName: "bio", fn: (row) => ({ age: row.age }) }, // Nested field
+    { dstField: "id", isKey: true, srcField: "id" },
+    { dstField: "company", isKey: true, fn: (row) => row.company },
+    {
+      dstField: "bio",
+      compareFn: (src, dst) => src.bio.age === dst.bio.age,
+      fn: (row) => ({ age: row.age }),
+    },
   ],
-  // Optional
   syncFns: {
-    // Async function to insert a record
     insertFn: async (row) => {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       return row.id;
     },
-    // Sync function to delete a record
-    deleteFn: (row) => {
-      return row.id;
-    },
+    deleteFn: (row) => row.id,
     updateFn: async (row, fields) => {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return row.id;
     },
   },
 });
 ```
 
-The `mappings` option defines how the fields from the source data should be mapped to the destination data. The `syncFns` are optional and specifies the (Async or Sync) functions to be executed for inserting, deleting, and updating records.
+The `mappings` option defines how the fields from the source data should be mapped to the destination data. The `syncFns` specifies the (Async or Sync) functions to be executed for inserting, deleting, and updating records.
 
-## Step 4 (Optional): Map the Fields
+## Step 3 (Optional): Map the Fields
 
 Call the `mapFields()` method on the sync engine to map the fields from the source data to the destination data format.
 
@@ -84,18 +79,20 @@ console.log("Mappings: ", JSON.stringify(mappings, null, 2));
 
 This will output the mapped fields in JSON format.
 
-## Step 5 (Optional): Get the Changes
+## Step 4 (Optional): Get the Changes
 
 Use the `getChanges()` method to retrieve the inserted, deleted, and updated records.
 
 ```ts
 const changes = await engine.getChanges();
-console.log("Changes: ", JSON.stringify(changes, null, 2));
+console.log("inserted:", changes.inserted);
+console.log("updated:", changes.updated);
+console.log("deleted:", changes.deleted);
 ```
 
 The output will show the changes detected by the sync engine.
 
-## Step 6 (Optional): Perform the Synchronization
+## Step 5 (Optional): Perform the Synchronization
 
 Finally, call the `sync()` method to execute the synchronization process based on the detected changes.
 
@@ -104,12 +101,14 @@ const result = await engine.sync();
 console.log("Result: ", JSON.stringify(result, null, 2));
 ```
 
-The `sync()` method will return the result of the synchronization, indicating the inserted, deleted, and updated records.
+The `sync()` method will run the insertFn, deleteFn, updateFn provided in syncFns and return the result of the synchronization, indicating the inserted, deleted, and updated records.
 
 That's it! You have now successfully used the One-Way Syncing Engine to transform data, detect changes, and perform synchronization.
 
 ## Additional Tips
 
 - Make sure to handle errors and edge cases appropriately.
-- Customize the syncFns and mappings options to fit your specific use case.
-- Use the getChanges() method to inspect the detected changes before performing the synchronization.
+- Customize the `syncFns` and `mappings` options to fit your specific use case.
+- Use the `getChanges()` method to inspect the detected changes before performing the synchronization.
+
+---

@@ -54,7 +54,7 @@ export class SyncEngine<
       {
         dstField: keyof Dst[number];
         isKey?: boolean;
-        /** a custom function to compare rows */
+        /** if it returns false, it means we have a change */
         compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
         /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, updated[number].overrides property. */
         updateVal?: (row: Dst[number]) => any;
@@ -214,10 +214,10 @@ export class SyncEngine<
           value: any;
         }[] = [];
 
-        for (const [key, value] of Object.entries(srcRecord)) {
+        for (const [key, srcValue] of Object.entries(srcRecord)) {
           // check if compareFn exists
           const compareFn = this.mappings.find(
-            (m) => "fn" in m && m.dstField === key
+            (m) => "compareFn" in m && m.dstField === key
           )?.compareFn;
 
           if (compareFn) {
@@ -225,14 +225,14 @@ export class SyncEngine<
               fields.push({
                 fieldName: key,
                 oldValue: dstRecord[key],
-                newValue: value,
+                newValue: srcValue,
               });
             }
-          } else if (dstRecord[key] !== value) {
+          } else if (dstRecord[key] !== srcValue) {
             fields.push({
               fieldName: key,
               oldValue: dstRecord[key],
-              newValue: value,
+              newValue: srcValue,
             });
           }
 
@@ -249,7 +249,7 @@ export class SyncEngine<
           }
         }
 
-        if (fields.length > 0 && overrides.length > 0) {
+        if (fields.length > 0 || (fields.length > 0 && overrides.length > 0)) {
           updated.push({
             row: srcRecord,
             fields,
