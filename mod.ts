@@ -2,10 +2,8 @@
  * @module SyncEngine
  * @description SyncEngine is a class that helps you sync data between two arrays of objects.
  */
-export class SyncEngine<
-  Src extends Record<any, any>[],
-  Dst extends Record<any, any>[]
-> {
+export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, any>[]> {
+  private debugMode: boolean = false;
   private src: Record<keyof Src[number], any>[];
   private dst: Record<keyof Dst[number], any>[];
   private keys: string[];
@@ -43,11 +41,13 @@ export class SyncEngine<
   } = {};
 
   constructor({
+    debugMode,
     dst,
     src,
     mappings,
     syncFns,
   }: {
+    debugMode?: boolean;
     src: Record<keyof Src[number], any>[];
     dst: Record<keyof Dst[number], any>[];
     mappings: Array<
@@ -83,11 +83,10 @@ export class SyncEngine<
       ) => any | Promise<any>;
     };
   }) {
+    this.debugMode = debugMode || false;
     this.src = src;
     this.dst = dst;
-    this.keys = mappings
-      .filter((m) => m.isKey)
-      .map((m) => m.dstField as string);
+    this.keys = mappings.filter((m) => m.isKey).map((m) => m.dstField as string);
     this.mappings = mappings;
     this.syncFns = syncFns || {};
   }
@@ -117,6 +116,30 @@ export class SyncEngine<
     }
     return mappedData;
   }
+  private compareValues(value1: any, value2: any) {
+    // if (this.debugMode) console.log(`comparing: `, value1, value2);
+    if (typeof value1 !== typeof value2) {
+      return false; // Different types, cannot be equal
+    }
+
+    switch (typeof value1) {
+      case "number":
+      case "string":
+      case "boolean":
+        return value1 === value2;
+
+      case "object":
+        if (value1 instanceof Date && value2 instanceof Date) {
+          return value1.getTime() === value2.getTime();
+        }
+        // For other objects (including arrays), shallow comparison
+        return JSON.stringify(value1) === JSON.stringify(value2);
+
+      default:
+        // Handle other types (undefined, function, etc.)
+        return value1 === value2;
+    }
+  }
 
   public async getChanges(): Promise<{
     inserted: {
@@ -125,6 +148,8 @@ export class SyncEngine<
         fieldName: keyof Dst[number];
         value: any;
       }[];
+      srcRecord?: Record<keyof Dst[number], any>;
+      dstRecord?: Record<keyof Dst[number], any>;
     }[];
     deleted: Record<keyof Dst[number], any>[];
     updated: {
@@ -138,6 +163,8 @@ export class SyncEngine<
         oldValue: any;
         newValue: any;
       }[];
+      srcRecord?: Record<keyof Dst[number], any>;
+      dstRecord?: Record<keyof Dst[number], any>;
     }[];
   }> {
     const deleted = [];
@@ -174,9 +201,7 @@ export class SyncEngine<
         }[] = [];
 
         for (const [key, value] of Object.entries(srcRecord)) {
-          const insertValFn = this.mappings.find(
-            (m) => m.dstField === key
-          )?.insertVal;
+          const insertValFn = this.mappings.find((m) => m.dstField === key)?.insertVal;
 
           if (insertValFn) {
             const insertedValue = insertValFn(srcRecord);
@@ -187,10 +212,28 @@ export class SyncEngine<
           }
         }
 
-        inserted.push({
+        const data: {
+          row: Record<keyof Dst[number], any>;
+          overrides?: {
+            fieldName: keyof Dst[number];
+            value: any;
+          }[];
+          srcRecord?: Record<keyof Dst[number], any>;
+          dstRecord?: Record<keyof Dst[number], any>;
+        } = {
           row: srcRecord,
           overrides: overrides.length > 0 ? overrides : undefined,
-        });
+        };
+
+        if (this.debugMode) {
+          data.srcRecord = srcRecord;
+          data.dstRecord = this.dst.find((dstRecord) => {
+            const dstKey = this.keys.map((key) => dstRecord[key]).join("_");
+            return dstKey === srcKey;
+          });
+        }
+
+        inserted.push(data);
       }
     }
 
@@ -228,7 +271,7 @@ export class SyncEngine<
                 newValue: srcValue,
               });
             }
-          } else if (dstRecord[key] !== srcValue) {
+          } else if (!this.compareValues(dstRecord[key], srcValue)) {
             fields.push({
               fieldName: key,
               oldValue: dstRecord[key],
@@ -236,9 +279,7 @@ export class SyncEngine<
             });
           }
 
-          const updateValFn = this.mappings.find(
-            (m) => m.dstField === key
-          )?.updateVal;
+          const updateValFn = this.mappings.find((m) => m.dstField === key)?.updateVal;
 
           if (updateValFn) {
             const updatedValue = updateValFn(srcRecord);
@@ -250,11 +291,34 @@ export class SyncEngine<
         }
 
         if (fields.length > 0 || (fields.length > 0 && overrides.length > 0)) {
-          updated.push({
+          const data: {
+            row: Record<keyof Dst[number], any>;
+            overrides?: {
+              fieldName: keyof Dst[number];
+              value: any;
+            }[];
+            fields: {
+              fieldName: keyof Dst[number];
+              oldValue: any;
+              newValue: any;
+            }[];
+            srcRecord?: Record<keyof Dst[number], any>;
+            dstRecord?: Record<keyof Dst[number], any>;
+          } = {
             row: srcRecord,
             fields,
             overrides: overrides.length > 0 ? overrides : undefined,
-          });
+          };
+
+          if (this.debugMode) {
+            data.srcRecord = srcRecord;
+            data.dstRecord = this.dst.find((dstRecord) => {
+              const dstKey = this.keys.map((key) => dstRecord[key]).join("_");
+              return dstKey === srcKey;
+            });
+          }
+
+          updated.push(data);
         }
       }
     }
