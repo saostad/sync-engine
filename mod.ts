@@ -2,7 +2,10 @@
  * @module SyncEngine
  * @description SyncEngine is a class that helps you sync data between two arrays of objects.
  */
-export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, any>[]> {
+export class SyncEngine<
+  Src extends Record<any, any>[],
+  Dst extends Record<any, any>[]
+> {
   private debugMode: boolean = false;
   private src: Record<keyof Src[number], any>[];
   private dst: Record<keyof Dst[number], any>[];
@@ -14,9 +17,9 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
       /** custom function to compare rows */
       compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
       /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, updated[number].overrides property. */
-      updateVal?: (row: Dst[number]) => any;
+      updateVal?: (row: Dst[number]) => { [key: string]: any };
       /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, inserted[number].overrides property. */
-      insertVal?: (row: Dst[number]) => any;
+      insertVal?: (row: Dst[number]) => { [key: string]: any };
     } & (
       | {
           srcField: keyof Src[number];
@@ -57,9 +60,9 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
         /** if it returns false, it means we have a change */
         compareFn?: (src: Dst[number], dst: Dst[number]) => boolean;
         /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, updated[number].overrides property. */
-        updateVal?: (row: Dst[number]) => any;
+        updateVal?: (row: Dst[number]) => { [key: string]: any };
         /** this function will generate value for specific fields that are not straightforward one-to-one mapping and need to put in different format, like setting lookup fields in dynamic360 web api. the value goes to return value of getChanges function, inserted[number].overrides property. */
-        insertVal?: (row: Dst[number]) => any;
+        insertVal?: (row: Dst[number]) => { [key: string]: any };
       } & (
         | {
             srcField: keyof Src[number];
@@ -86,7 +89,9 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
     this.debugMode = debugMode || false;
     this.src = src;
     this.dst = dst;
-    this.keys = mappings.filter((m) => m.isKey).map((m) => m.dstField as string);
+    this.keys = mappings
+      .filter((m) => m.isKey)
+      .map((m) => m.dstField as string);
     this.mappings = mappings;
     this.syncFns = syncFns || {};
   }
@@ -146,7 +151,7 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
       row: Record<keyof Dst[number], any>;
       overrides?: {
         fieldName: keyof Dst[number];
-        value: any;
+        value: { [key: string]: any };
       }[];
       srcRecord?: Record<keyof Dst[number], any>;
       dstRecord?: Record<keyof Dst[number], any>;
@@ -156,7 +161,7 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
       row: Record<keyof Dst[number], any>;
       overrides?: {
         fieldName: keyof Dst[number];
-        value: any;
+        value: { [key: string]: any };
       }[];
       fields: {
         fieldName: keyof Dst[number];
@@ -201,7 +206,9 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
         }[] = [];
 
         for (const [key, value] of Object.entries(srcRecord)) {
-          const insertValFn = this.mappings.find((m) => m.dstField === key)?.insertVal;
+          const insertValFn = this.mappings.find(
+            (m) => m.dstField === key
+          )?.insertVal;
 
           if (insertValFn) {
             const insertedValue = insertValFn(srcRecord);
@@ -212,7 +219,7 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
           }
         }
 
-        const data: {
+        const insertInfo: {
           row: Record<keyof Dst[number], any>;
           overrides?: {
             fieldName: keyof Dst[number];
@@ -226,14 +233,14 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
         };
 
         if (this.debugMode) {
-          data.srcRecord = srcRecord;
-          data.dstRecord = this.dst.find((dstRecord) => {
+          insertInfo.srcRecord = srcRecord;
+          insertInfo.dstRecord = this.dst.find((dstRecord) => {
             const dstKey = this.keys.map((key) => dstRecord[key]).join("_");
             return dstKey === srcKey;
           });
         }
 
-        inserted.push(data);
+        inserted.push(insertInfo);
       }
     }
 
@@ -279,7 +286,9 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
             });
           }
 
-          const updateValFn = this.mappings.find((m) => m.dstField === key)?.updateVal;
+          const updateValFn = this.mappings.find(
+            (m) => m.dstField === key
+          )?.updateVal;
 
           if (updateValFn) {
             const updatedValue = updateValFn(srcRecord);
@@ -291,7 +300,7 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
         }
 
         if (fields.length > 0 || (fields.length > 0 && overrides.length > 0)) {
-          const data: {
+          const updateInfo: {
             row: Record<keyof Dst[number], any>;
             overrides?: {
               fieldName: keyof Dst[number];
@@ -311,14 +320,14 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
           };
 
           if (this.debugMode) {
-            data.srcRecord = srcRecord;
-            data.dstRecord = this.dst.find((dstRecord) => {
+            updateInfo.srcRecord = srcRecord;
+            updateInfo.dstRecord = this.dst.find((dstRecord) => {
               const dstKey = this.keys.map((key) => dstRecord[key]).join("_");
               return dstKey === srcKey;
             });
           }
 
-          updated.push(data);
+          updated.push(updateInfo);
         }
       }
     }
@@ -419,10 +428,10 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
 //     {
 //       dstField: "FullName",
 //       updateVal: (row) => {
-//         return `${row.company}-${row.id}`;
+//         return { FullName: `${row.company}-${row.id}` };
 //       },
 //       insertVal: (row) => {
-//         return `${row.company}-${row.id}`;
+//         return { FullName: `${row.company}-${row.id}` };
 //       },
 //       fn: async (row) => {
 //         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -458,11 +467,15 @@ export class SyncEngine<Src extends Record<any, any>[], Dst extends Record<any, 
 //   },
 // });
 
-// const mappings = await engine.mapFields();
-// console.log(mappings);
+// // const mappings = await engine.mapFields();
+// // console.log(mappings);
 
 // const changes = await engine.getChanges();
-// console.log(JSON.stringify(changes, null, 2));
-// console.log("inserted:", changes.inserted);
-// console.log("updated:", changes.updated);
-// console.log("deleted:", changes.deleted);
+// // console.log(JSON.stringify(changes, null, 2));
+// // console.log("inserted:", changes.inserted);
+// // console.log("updated:", changes.updated);
+// // console.log("deleted:", changes.deleted);
+// changes.updated.forEach((update) => {
+//   console.log(update);
+//   // update.overrides[0].value
+// });
